@@ -1,2 +1,2 @@
-# analytics-bigquery-ecommerce
-Data Analysis of thelook_ecommerse dataset from BigQuery
+# Data Analysis of thelook_ecommerce dataset in Google BigQuery
+
