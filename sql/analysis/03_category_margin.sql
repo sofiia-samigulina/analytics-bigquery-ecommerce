@@ -3,11 +3,11 @@
 
 SELECT p.category, 
 ROUND(SUM(oi.sale_price),2) AS revenue, ROUND(SUM(p.cost),2) AS costs, ROUND(SUM(oi.sale_price)-SUM(p.cost),2) AS margin, 
-ROUND( SAFE_DIVIDE((SUM(oi.sale_price)-SUM(p.cost)),SUM(oi.sale_price)) *100,2) AS margin_percento
+ROUND( SAFE_DIVIDE((SUM(oi.sale_price)-SUM(p.cost)),SUM(oi.sale_price)) *100,2) AS margin_pct
 FROM `bigquery-public-data.thelook_ecommerce.products` p
 INNER JOIN `bigquery-public-data.thelook_ecommerce.order_items` oi ON p.id = oi.product_id AND oi.status = "Complete"
 GROUP BY p.category
-ORDER BY margin_percento DESC --or order by revenue desc for the first part of question
+ORDER BY margin_pct DESC --or order by revenue desc for the first part of question
 
 -- The dataset contains 26 product categories.
 -- Gross margin varies substantially: from 61.81% ("Blazers & Jackets") down to

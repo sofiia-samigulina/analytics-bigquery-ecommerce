@@ -10,9 +10,9 @@ WITH CTE_unique_session AS (
   GROUP BY session_id
 )
 SELECT CTE_unique_session.browser, COUNT(*) AS all_sessions, SUM(had_product) AS visited_product, SUM(had_cart) AS visited_cart, SUM(had_purchase) AS visited_purchase, 
-ROUND(SAFE_DIVIDE(SUM(had_product), COUNT(*)) *100,2) AS visited_product_percento,
-ROUND(SAFE_DIVIDE(SUM(had_cart), COUNT(*)) *100,2) AS visited_cart_percento,
-ROUND(SAFE_DIVIDE(SUM(had_purchase), COUNT(*)) *100,2) AS visited_purchase_percento
+ROUND(SAFE_DIVIDE(SUM(had_product), COUNT(*)) *100,2) AS visited_product_pct,
+ROUND(SAFE_DIVIDE(SUM(had_cart), COUNT(*)) *100,2) AS visited_cart_pct,
+ROUND(SAFE_DIVIDE(SUM(had_purchase), COUNT(*)) *100,2) AS visited_purchase_pct
 FROM CTE_unique_session
 GROUP BY CTE_unique_session.browser
 HAVING COUNT(*) > 100
