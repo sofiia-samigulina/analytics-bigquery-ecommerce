@@ -1,4 +1,4 @@
---question 2
+--question 3
 --Which channel brings the most valuable customers?
 
 WITH CTE_orders_count_by_user AS (

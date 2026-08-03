@@ -1,4 +1,4 @@
---question 3
+--question 1
 --Are the categories that drive revenue also the most profitable?
 
 SELECT p.category, 
