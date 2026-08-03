@@ -2,9 +2,9 @@
 
 ## About the project
 
-This project presents data analysis of "thelook_ecommerce" dataset in Google BigQuery. The dataset is synthetic. Has 7 tables: products, distribution_centers, inventory_items, order_items, orders, events, users. The relational schema is located on the link: 
+This project presents data analysis of "thelook_ecommerce" dataset in Google BigQuery. The dataset is synthetic. It contains 7 tables: products, distribution_centers, inventory_items, order_items, orders, events, users. The relational schema is shown below: 
 
-![Relational Schema thelook_ecommerce](/docs/diagrams/relational_schema_thelook_ecommerce.png)
+[![Relational Schema thelook_ecommerce](/docs/diagrams/relational_schema_thelook_ecommerce.png)](/docs/diagrams/relational_schema_thelook_ecommerce.png)
 
 ## Questions
 
