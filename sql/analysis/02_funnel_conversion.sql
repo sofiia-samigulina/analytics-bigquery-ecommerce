@@ -1,5 +1,5 @@
 --question 2
---Where do we lose customers in the sales funnel and is there any difference by the browser?
+--Where do we lose customers in the sales funnel and is there any difference by browser?
 
 WITH CTE_unique_session AS (
   SELECT session_id, ANY_VALUE(browser) AS browser,
@@ -19,5 +19,5 @@ HAVING COUNT(*) > 100
 ORDER BY all_sessions DESC
 
 --Chrome is the most popular browser, but funnel conversion is nearly identical across browsers.
---Every session in the dataset includes a product view. This is likely an artefact of the synthetic data rather than real behavior.
+--Every session in the dataset includes a product view. This is likely an artifact of the synthetic data rather than real behavior.
 --62-64% reached a cart and 26-27% completed a purchase. 
