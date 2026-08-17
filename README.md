@@ -6,6 +6,8 @@ This project presents data analysis of "thelook_ecommerce" dataset in Google Big
 
 [![Relational Schema thelook_ecommerce](/docs/diagrams/relational_schema_thelook_ecommerce.png)](/docs/diagrams/relational_schema_thelook_ecommerce.png)
 
+Currently extending with a data ingestion layer, dbt transformations and scheduled runs.
+
 ## Questions
 
 1. Are the categories that drive revenue also the most profitable?
