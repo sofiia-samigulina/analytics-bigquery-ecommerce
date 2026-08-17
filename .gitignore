@@ -1,5 +1,5 @@
 #Ignore secret files
-project-1fe4418a-24e0-4804-a77-51304304a3ee.json
+service_account_credential.json
 
 #Ignore virtual environments
-data_engineering_ecommerce/
+data-engineering-ecommerce/
