@@ -1,5 +1,5 @@
 #Ignore secret files
-service_account_credential.json
+data-pipeline/data-ingestion/service_account_credential.json
 
 #Ignore virtual environments
 data-engineering-ecommerce/
