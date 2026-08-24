@@ -2,21 +2,32 @@ import requests
 from google.oauth2 import service_account as sa
 from google.cloud import bigquery as bq
 import time
+import os
+from dotenv import load_dotenv, find_dotenv
 
 #project details
 MY_PROJECT_ID = 'project-1fe4418a-24e0-4804-a77'
 ECOMMERCE_DATASET_ID = 'bigquery-public-data.thelook_ecommerce'
 DATASET_ID = 'raw_ecommerce'
-URL_HOLIDAYS_BASE = 'https://nagerholidays.com/api/v4/Holidays/' #API without a key for access
+URL_HOLIDAYS_BASE = 'https://calendarific.com/api/v2/holidays' 
 SERVICE_ACCOUNT_FILE = 'data-pipeline/data-ingestion/service_account_credential.json' #path to service account file
 
 #get the holidays
 def get_the_holidays():
+
+    #read the API key from the .env file
+    dotenv_path = find_dotenv()
+    load_dotenv(dotenv_path)
+    api_key = os.environ.get('API_KEY')
+    if not api_key:
+        print(f".env failed to load. Please check the .env file and ensure it contains the API_KEY variable.")
+
     #only countries from the dataset
-    countries_codes = ["BR", "JP", "US", "CO", "ES", "CN", "AU", "FR", "DE", "BE", "KR", "PL", "GB", "AT"] 
+    countries_codes = ["br", "jp", "us", "co", "es", "cn", "au", "fr", "de", "be", "kr", "pl", "gb", "at"] 
     countries_total = len(countries_codes)
 
-    years = ["2025", "2026"] #TODO: try calendrafic besause it has more years (from 2019)
+    #years from the dataset
+    years = ["2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"] 
     years_total = len(years)
     
     holidays_list = []
@@ -24,18 +35,34 @@ def get_the_holidays():
     for year in years:
         country_count = 0
         print(f'Getting the holidays for the year {year}...')
+
         for country in countries_codes:
-            current_url = URL_HOLIDAYS_BASE + country + f'/{year}'
-            r = requests.get(current_url, auth=('user', 'pass'))
+            r = requests.get(URL_HOLIDAYS_BASE, params={"api_key": api_key, "country": country, "year": year})
             #TODO: add the log file
-            if r.status_code != 200:
-                print(f'For {country} and year {year} a response failed')
+            if r.status_code == 401:
+                raise RuntimeError("Please check your API key for the holidays API. The request was unauthorized.")
+            elif r.status_code == 429:
+                raise RuntimeError("You have exceeded the API request limit. Please wait and try again later.")
+            elif r.status_code != 200:
+                print(f"Received an error response with code {r.status_code} for {country} and year {year}.")
                 continue
-            holidays_list.extend(r.json())
-            if r.status_code == 200:
-                country_count += 1
-        print(f'For the year {year}: {country_count} countries were successful.')
-        time.sleep(1) #to avoid the API limit
+            elif r.status_code == 200:
+                data = r.json()
+                holidays = data['response']['holidays']
+                for holiday in holidays:
+                    holiday_entry = {
+                        "countryCode": country,
+                        "year": int(year),
+                        "holiday_date": holiday['date']['iso'][:10],  # Extracting only the date part (YYYY-MM-DD)
+                        "name": holiday['name'],
+                        "description": holiday['description']
+                    }
+                    holidays_list.extend([holiday_entry])
+                country_count += 1 
+            time.sleep(0.5) #to avoid the API limit
+
+        print(f'For the year {year}: {country_count} from {countries_total} countries were successful.')
+        
 
     return holidays_list
 
@@ -45,12 +72,11 @@ def load_holidays_to_bigquery():
     job_config = bq.LoadJobConfig(
         write_disposition=bq.WriteDisposition.WRITE_TRUNCATE,
         schema = [
-            bq.SchemaField("date", "DATE"),
-            bq.SchemaField("name", "STRING"),
             bq.SchemaField("countryCode", "STRING"),
-            bq.SchemaField("subdivisionCodes", "STRING", mode="REPEATED"),
-            bq.SchemaField("nationalHoliday", "BOOLEAN"),
-            bq.SchemaField("holidayTypes", "STRING", mode="REPEATED")
+            bq.SchemaField("year", "INTEGER"),
+            bq.SchemaField("holiday_date", "DATE"),
+            bq.SchemaField("name", "STRING"),
+            bq.SchemaField("description", "STRING")
         ]
     )
     print("Loading holidays to BigQuery...")

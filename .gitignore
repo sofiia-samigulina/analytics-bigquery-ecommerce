@@ -1,5 +1,6 @@
 #Ignore secret files
 data-pipeline/data-ingestion/service_account_credential.json
+.env
 
 #Ignore virtual environments
 data-engineering-ecommerce/
