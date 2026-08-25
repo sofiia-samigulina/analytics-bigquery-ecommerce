@@ -1,6 +1,16 @@
 #Ignore secret files
-data-pipeline/data-ingestion/service_account_credential.json
+*.json
 .env
+!country_fixes.json
 
 #Ignore virtual environments
-data-engineering-ecommerce/
+data_engineering_ecommerce/
+
+#Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.vscode/
+.idea/

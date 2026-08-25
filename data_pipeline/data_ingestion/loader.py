@@ -4,13 +4,8 @@ from google.cloud import bigquery as bq
 import time
 import os
 from dotenv import load_dotenv, find_dotenv
-
-#project details
-MY_PROJECT_ID = 'project-1fe4418a-24e0-4804-a77'
-ECOMMERCE_DATASET_ID = 'bigquery-public-data.thelook_ecommerce'
-DATASET_ID = 'raw_ecommerce'
-URL_HOLIDAYS_BASE = 'https://calendarific.com/api/v2/holidays' 
-SERVICE_ACCOUNT_FILE = 'data-pipeline/data-ingestion/service_account_credential.json' #path to service account file
+from data_pipeline.constants.py import MY_PROJECT_ID, ORIGINAL_DATASET_ID, RAW_DATASET_ID, 
+DESTINATION_DATASET_NAME, URL_HOLIDAYS_BASE, SERVICE_ACCOUNT_FILE
 
 #get the holidays
 def get_the_holidays():
@@ -62,7 +57,6 @@ def get_the_holidays():
             time.sleep(0.5) #to avoid the API limit
 
         print(f'For the year {year}: {country_count} from {countries_total} countries were successful.')
-        
 
     return holidays_list
 
@@ -80,23 +74,23 @@ def load_holidays_to_bigquery():
         ]
     )
     print("Loading holidays to BigQuery...")
-    job = client.load_table_from_json(holidays_list, f'{DATASET_ID}.holidays', job_config = job_config)
+    job = client.load_table_from_json(holidays_list, f'{DESTINATION_DATASET_NAME}.holidays', job_config = job_config)
     print("Loading holidays was successful")
 
 def create_query_partitions(table_id, partition_key):
     query = f"""
-        CREATE OR REPLACE TABLE `{DATASET_ID}.{table_id}`
+        CREATE OR REPLACE TABLE `{DESTINATION_DATASET_NAME}.{table_id}`
         PARTITION BY DATE({partition_key})
         AS
-        SELECT * FROM `{ECOMMERCE_DATASET_ID}.{table_id}`;
+        SELECT * FROM `{ORIGINAL_DATASET_ID}.{table_id}`;
     """
     return query
 
 def create_base_query(table_id):
     query = f"""
-        CREATE OR REPLACE TABLE `{DATASET_ID}.{table_id}`
+        CREATE OR REPLACE TABLE `{DESTINATION_DATASET_NAME}.{table_id}`
         AS
-        SELECT * FROM `{ECOMMERCE_DATASET_ID}.{table_id}`;
+        SELECT * FROM `{ORIGINAL_DATASET_ID}.{table_id}`;
     """
     return query
 
