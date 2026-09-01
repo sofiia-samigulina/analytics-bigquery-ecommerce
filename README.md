@@ -6,6 +6,8 @@ This project presents data analysis and engineering part of the "thelook_ecommer
 
 [![Relational Schema thelook_ecommerce](/docs/diagrams/relational_schema_thelook_ecommerce.png)](/docs/diagrams/relational_schema_thelook_ecommerce.png)
 
+During the data engineering phase I added a new table containing public holidays for the countries present in the dataset.
+
 ## Questions
 
 1. Are the categories that drive revenue also the most profitable?
@@ -30,11 +32,18 @@ The project started as an SQL analysis on top of the public dataset. I later ext
 
 Source tables are copied from the public dataset into my own raw dataset. Tables that grow over time (orders, order_items, events, inventory_items) are partitioned by date; dimension tables (products, users, distribution_centers) are loaded as a full refresh, since they are small and change slowly.
 
-World holidays are pulled from the Calendarific REST API and loaded into the same layer. This is a different ingestion pattern from the daily incremental load, because holidays are known in advance and change once a year rather than every day.
+World holidays are pulled from the Calendarific REST API and loaded into the same layer. Public holidays come from the Calendarific REST API. The raw JSON response
+is stored unparsed as a single STRING column, alongside the request parameters (country code and year) needed to identify it. 
 
-### Transformation (Python)
+Both paths run as a full refresh. Incremental loading in progress...
 
-This layer cleans and standardizes each source table without changing its grain: column selection, type casting, consistent naming, and normalization of inconsistent values (for example, country names appearing in more than one form).
+### Transformation (SQL)
+
+All transformations run inside BigQuery, so the raw layer stays reproducible from its sources alone.
+
+The holidays table is the substantial one: the stored JSON is parsed with PARSE_JSON, and the nested holidays array is expanded into one row per holiday with UNNEST and JSON_QUERY_ARRAY. Dates arrive in mixed formats (plain dates and full timestamps with offsets), so they are truncated to the date part before casting.
+
+The remaining tables are cleaned without changing their grain: dropping unused columns, casting types, renaming for consistency (created_at becomes registration_date, ordered_at, received_at, occurred_at depending on what it means in context), and normalizing values that appear in more than one form (for example, country names).
 
 ### Orchestration
 
@@ -49,9 +58,10 @@ Rebuilding as a star schema to support a dynamic report in progress...
 ## Technologies
 
 - Google BigQuery - data warehouse and query engine (public dataset "thelook_ecommerce")
-- Python - data ingestion and transformation (google-cloud-bigquery, requests, pandas)
+- Python - data ingestion (google-cloud-bigquery, requests)
 - REST API - API Calendarific, world holidays as an external source
-- SQL - data exploration and analysis: aggregation functions, JOINs, order by, group by, CTE, case when, having, views
+- SQL - data transformation and analysis: aggregation functions, JOINs, order by, group by, CTEs, case when, having, views, JSON parsing
+  with "UNNEST", partitioning and clustering
 - Power BI Desktop: DAX measures, visualizations 
 - ERDPlus: relational schema modeling
 

@@ -1,141 +1,219 @@
 from google.oauth2 import service_account as sa
 from google.cloud import bigquery as bq
-from data_pipeline.constants import MY_PROJECT_ID, RAW_DATASET_ID, SERVICE_ACCOUNT_FILE
-import pandas as pd
-import country_converter as coco
-import json
+from data_pipeline.constants import MY_PROJECT_ID, RAW_DATASET_ID, SERVICE_ACCOUNT_FILE, CLEANED_DATASET_ID
 
-def download_raw_data_from_bigquery():
-    datasets = {}
-    tables = ["distribution_centers", "events", "holidays", "inventory_items", "order_items", "orders", "products", "users"]
-    for table in tables:
+def transform_users():
+    print("Transforming users data...")
+    query = f"""
+        CREATE OR REPLACE TABLE `{CLEANED_DATASET_ID}.users` AS
+        SELECT 
+            id as user_id,
+            first_name,
+            last_name,
+            email,
+            age,
+            gender,
+            CASE 
+                WHEN country = "Brasil" THEN "Brazil" 
+                WHEN country = "Deutschland" THEN "Germany"
+                WHEN country = "España" THEN "Spain"
+                ELSE country 
+            END as country,
+            postal_code,
+            state,
+            city,
+            street_address,
+            user_geom as user_location,
+            traffic_source,
+            DATE(created_at) as registration_date
+        FROM 
+            `{RAW_DATASET_ID}.users`
+    """
+    query_job = client.query(query)
+    rows = query_job.result()  # Waits for query to finish
+    print("Transforming users data was successful")
 
-        try:
-            table_ref = client.get_table(f"{RAW_DATASET_ID}.{table}")
-            df = client.list_rows(table_ref).to_dataframe(create_bqstorage_client=True)
-            datasets[table] = df
-            print(f"Downloaded {table} from BigQuery into DataFrame with {len(df)} rows.")
-        except Exception as e:
-            print(f"Failed to download {table}: {e}")
+def transform_holidays():
+    print("Transforming holidays data...")
+    query = f"""
+        CREATE OR REPLACE TABLE `{CLEANED_DATASET_ID}.holidays` AS
+        SELECT 
+            year as year,
+            JSON_VALUE(holidays, '$.date.iso') as holiday_date,
+            JSON_VALUE(holidays, '$.country.name') as country_name,
+            UPPER(country_code) as country_code, 
+            JSON_VALUE(holidays, '$.name') as holiday_name,
+            JSON_VALUE(holidays, '$.description') as description, 
+        FROM 
+            `{RAW_DATASET_ID}.holidays`,
+            UNNEST(JSON_QUERY_ARRAY(PARSE_JSON(payload), '$.response.holidays')) as holidays
+    """
+    query_job = client.query(query)
+    rows = query_job.result()  # Waits for query to finish
+    print("Transforming holidays data was successful")
 
-    return datasets
+def transform_products():
+    print("Transforming products data...")
+    query = f"""
+        CREATE OR REPLACE TABLE `{CLEANED_DATASET_ID}.products` AS
+        SELECT 
+            id as product_id,
+            cost,
+            retail_price,
+            retail_price - cost as gross_margin,
+            category,
+            name as product_name,
+            brand,
+            department,
+            distribution_center_id
+        FROM 
+            `{RAW_DATASET_ID}.products`
+    """
+    query_job = client.query(query)
+    rows = query_job.result()  # Waits for query to finish
+    print("Transforming products data was successful")
 
-def transform_data(datasets):
-    cc = coco.CountryConverter() #library for countries
+def transform_distribution_centers():
+    print("Transforming distribution centers data...")
+    query = f"""
+        CREATE OR REPLACE TABLE `{CLEANED_DATASET_ID}.distribution_centers` AS
+        SELECT 
+            id as distribution_center_id,
+            name as distribution_center_name,
+            distribution_center_geom as distribution_center_location
+        FROM 
+            `{RAW_DATASET_ID}.distribution_centers`
+    """
+    query_job = client.query(query)
+    rows = query_job.result()  # Waits for query to finish
+    print("Transforming distribution centers data was successful")
 
-    processed = {}
+def transform_orders():
+    print("Transforming orders data...")
+    query = f"""
+        CREATE OR REPLACE TABLE `{CLEANED_DATASET_ID}.orders` 
+        PARTITION BY DATE_TRUNC(ordered_at, MONTH) AS
+        SELECT 
+            order_id, 
+            user_id,
+            status as order_status,
+            gender,
+            DATE(created_at) as ordered_at,
+            DATE(returned_at) as returned_at,
+            DATE(shipped_at) as shipped_at,
+            DATE(delivered_at) as delivered_at,
+            num_of_item
+        FROM 
+            `{RAW_DATASET_ID}.orders`
+    """
+    query_job = client.query(query)
+    rows = query_job.result()  # Waits for query to finish
+    print("Transforming orders data was successful")
 
-    if 'holidays' in datasets:
-        holidays = datasets['holidays'].copy() 
-        holidays['countryCode'] = holidays['countryCode'].str.upper()
+def transform_order_items():
+    print("Transforming order items data...")
+    query = f"""
+        CREATE OR REPLACE TABLE `{CLEANED_DATASET_ID}.order_items` 
+        PARTITION BY DATE_TRUNC(ordered_at, MONTH) AS
+        SELECT 
+            id as order_item_id, 
+            order_id,
+            user_id,
+            product_id,
+            inventory_item_id,
+            status as order_item_status,
+            DATE(created_at) as ordered_at,
+            DATE(returned_at) as returned_at,
+            DATE(shipped_at) as shipped_at,
+            DATE(delivered_at) as delivered_at,
+            sale_price
+        FROM 
+            `{RAW_DATASET_ID}.order_items`
+    """
+    query_job = client.query(query)
+    rows = query_job.result()  # Waits for query to finish
+    print("Transforming order items data was successful")
 
-        processed['holidays_clean'] = holidays
-        print(f"Processed holidays data: {len(holidays)} rows")
+def transform_events():
+    print("Transforming events data...")
+    query = f"""
+        CREATE OR REPLACE TABLE `{CLEANED_DATASET_ID}.events` 
+        PARTITION BY DATE_TRUNC(occurred_at, MONTH) AS
+        SELECT 
+            id as event_id,
+            user_id,
+            sequence_number,
+            session_id,
+            DATE(created_at) as occurred_at,
+            ip_address,
+            postal_code,
+            state,
+            city,
+            browser,
+            traffic_source,
+            event_type
+        FROM 
+            `{RAW_DATASET_ID}.events`
+    """
+    query_job = client.query(query)
+    rows = query_job.result()  # Waits for query to finish
+    print("Transforming events data was successful")
 
-    if 'users' in datasets:
-        users = datasets['users'].copy() 
+def transform_inventory_items():
+    print("Transforming inventory items data...")
+    query = f"""
+        CREATE OR REPLACE TABLE `{CLEANED_DATASET_ID}.inventory_items` 
+        PARTITION BY DATE_TRUNC(received_at, MONTH) AS
+        SELECT 
+            id as inventory_item_id,
+            product_id,
+            DATE(created_at) as received_at,
+            DATE(sold_at) as sold_at,
+            TIMESTAMP_DIFF(sold_at, created_at, DAY) as days_in_stock,
+            cost as product_cost,
+            product_retail_price,
+            product_retail_price - cost as product_gross_margin,
+            product_category,
+            product_name,
+            product_brand,
+            product_department,
+            product_distribution_center_id as distribution_center_id
+        FROM 
+            `{RAW_DATASET_ID}.inventory_items`
+    """
+    query_job = client.query(query)
+    rows = query_job.result()  # Waits for query to finish
+    print("Transforming inventory items data was successful")
 
-        # Remove time from 'created_at' column
-        users['created_at'] = pd.to_datetime(users['created_at']).dt.date
+def transform_data():
+    # 1
+    # the main transforming for holidays data, because this data is in JSON format, we need to parse it and create a new table with the relevant information
+    transform_holidays()
 
-        # Convert country names to ISO3 codes
-        with open('country_fixes.json', 'r', encoding='utf-8') as f:
-            manual_fixes = json.load(f)
+    # 2 updating countries for users
+    transform_users()
 
-        users['country'] = users['country'].replace(manual_fixes)
-        users['country_code'] = cc.pandas_convert(series=users['country'], to='ISO2')
-        not_found = users.loc[users['country_code'] == 'not found', 'country'].unique()
-        print(not_found)
+    # 3 transforming products data, added gross_margin
+    transform_products()
 
-        processed['users_clean'] = users
-        print(f"Processed users data: {len(users)} rows")
+    # 4 transforming distribution centers data
+    transform_distribution_centers()
 
-    if 'events' in datasets:
-        events = datasets['events'].copy() 
+    # 5 transforming orders data
+    transform_orders()
 
-        # Remove time from 'created_at' column
-        events['created_at'] = pd.to_datetime(events['created_at']).dt.date
+    # 6 transforming order items data
+    transform_order_items()
 
-        processed['events_clean'] = events
-        print(f"Processed events data: {len(events)} rows")
+    # 7 transforming events data
+    transform_events()
 
-    if 'inventory_items' in datasets:
-        inventory_items = datasets['inventory_items'].copy() 
+    # 8 transforming inventory items data
+    transform_inventory_items()
 
-        # Remove time from 'created_at' column
-        inventory_items['created_at'] = pd.to_datetime(inventory_items['created_at']).dt.date
-
-        # Remove time from 'sold_at' column
-        inventory_items['sold_at'] = pd.to_datetime(inventory_items['sold_at']).dt.date
-
-        processed['inventory_items_clean'] = inventory_items
-        print(f"Processed inventory items data: {len(inventory_items)} rows")
-
-    if 'order_items' in datasets:
-        order_items = datasets['order_items'].copy() 
-
-        # Remove time from 'created_at' column
-        order_items['created_at'] = pd.to_datetime(order_items['created_at']).dt.date
-
-        # Remove time from 'shipped_at' column
-        order_items['shipped_at'] = pd.to_datetime(order_items['shipped_at']).dt.date
-
-        # Remove time from 'delivered_at' column
-        order_items['delivered_at'] = pd.to_datetime(order_items['delivered_at']).dt.date
-
-        # Remove time from 'returned_at' column
-        order_items['returned_at'] = pd.to_datetime(order_items['returned_at']).dt.date
-
-        processed['order_items_clean'] = order_items
-        print(f"Processed order items data: {len(order_items)} rows")
-
-    if 'orders' in datasets:
-        orders = datasets['orders'].copy() 
-
-        # Remove time from 'created_at' column
-        orders['created_at'] = pd.to_datetime(orders['created_at']).dt.date
-
-        # Remove time from 'shipped_at' column
-        orders['shipped_at'] = pd.to_datetime(orders['shipped_at']).dt.date
-
-        # Remove time from 'delivered_at' column
-        orders['delivered_at'] = pd.to_datetime(orders['delivered_at']).dt.date
-
-        # Remove time from 'returned_at' column
-        orders['returned_at'] = pd.to_datetime(orders['returned_at']).dt.date
-
-        processed['orders_clean'] = orders
-        print(f"Processed orders data: {len(orders)} rows")
-
-    if 'products' in datasets:
-        products = datasets['products'].copy() 
-
-        processed['products_clean'] = products
-        print(f"Processed products data: {len(products)} rows")
-
-    if 'distribution_centers' in datasets:
-        distribution_centers = datasets['distribution_centers'].copy()
-
-        processed['distribution_centers_clean'] = distribution_centers
-        print(f"Processed distribution centers data: {len(distribution_centers)} rows")
-
-    return processed
-
-def load_data_to_bigquery(processed_datasets):
-    pass
-
-def updated_transform_data():
-    pass
 
 if __name__=="__main__":
     credentials = sa.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE)
     client = bq.Client(credentials=credentials, project=MY_PROJECT_ID)
 
-    # 1 Extract
-    #datasets = download_raw_data_from_bigquery()
-
-    # 2 Transform
-    #cleaned_datasets = transform_data(datasets)
-
-    # 3 Load
-    #load_data_to_bigquery(cleaned_datasets)
+    transform_data()
