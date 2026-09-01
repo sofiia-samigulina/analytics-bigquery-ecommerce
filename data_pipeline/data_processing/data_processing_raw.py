@@ -124,15 +124,18 @@ def transform_data(datasets):
 def load_data_to_bigquery(processed_datasets):
     pass
 
+def updated_transform_data():
+    pass
+
 if __name__=="__main__":
     credentials = sa.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE)
     client = bq.Client(credentials=credentials, project=MY_PROJECT_ID)
 
     # 1 Extract
-    datasets = download_raw_data_from_bigquery()
+    #datasets = download_raw_data_from_bigquery()
 
     # 2 Transform
-    cleaned_datasets = transform_data(datasets)
+    #cleaned_datasets = transform_data(datasets)
 
     # 3 Load
-    load_data_to_bigquery(cleaned_datasets)
+    #load_data_to_bigquery(cleaned_datasets)

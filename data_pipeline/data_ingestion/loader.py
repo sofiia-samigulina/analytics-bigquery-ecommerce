@@ -4,8 +4,8 @@ from google.cloud import bigquery as bq
 import time
 import os
 from dotenv import load_dotenv, find_dotenv
-from data_pipeline.constants.py import MY_PROJECT_ID, ORIGINAL_DATASET_ID, RAW_DATASET_ID, 
-DESTINATION_DATASET_NAME, URL_HOLIDAYS_BASE, SERVICE_ACCOUNT_FILE
+from data_pipeline.constants import (MY_PROJECT_ID, ORIGINAL_DATASET_ID, RAW_DATASET_ID, 
+RAW_DATASET_NAME, URL_HOLIDAYS_BASE, SERVICE_ACCOUNT_FILE)
 
 #get the holidays
 def get_the_holidays():
@@ -15,7 +15,7 @@ def get_the_holidays():
     load_dotenv(dotenv_path)
     api_key = os.environ.get('API_KEY')
     if not api_key:
-        print(f".env failed to load. Please check the .env file and ensure it contains the API_KEY variable.")
+        raise RuntimeError("API_KEY not found in .env")
 
     #only countries from the dataset
     countries_codes = ["br", "jp", "us", "co", "es", "cn", "au", "fr", "de", "be", "kr", "pl", "gb", "at"] 
@@ -31,28 +31,24 @@ def get_the_holidays():
         country_count = 0
         print(f'Getting the holidays for the year {year}...')
 
-        for country in countries_codes:
-            r = requests.get(URL_HOLIDAYS_BASE, params={"api_key": api_key, "country": country, "year": year})
+        for country_code in countries_codes:
+            r = requests.get(URL_HOLIDAYS_BASE, params={"api_key": api_key, "country": country_code, "year": year})
             #TODO: add the log file
             if r.status_code == 401:
                 raise RuntimeError("Please check your API key for the holidays API. The request was unauthorized.")
             elif r.status_code == 429:
                 raise RuntimeError("You have exceeded the API request limit. Please wait and try again later.")
             elif r.status_code != 200:
-                print(f"Received an error response with code {r.status_code} for {country} and year {year}.")
+                print(f"Received an error response with code {r.status_code} for {country_code} and year {year}.")
+                time.sleep(0.5) #to avoid the API limit
                 continue
-            elif r.status_code == 200:
-                data = r.json()
-                holidays = data['response']['holidays']
-                for holiday in holidays:
-                    holiday_entry = {
-                        "countryCode": country,
-                        "year": int(year),
-                        "holiday_date": holiday['date']['iso'][:10],  # Extracting only the date part (YYYY-MM-DD)
-                        "name": holiday['name'],
-                        "description": holiday['description']
-                    }
-                    holidays_list.extend([holiday_entry])
+            else:
+                row = {
+                    "country_code": country_code,
+                    "year": int(year),
+                    "payload": r.text
+                }
+                holidays_list.append(row)
                 country_count += 1 
             time.sleep(0.5) #to avoid the API limit
 
@@ -63,24 +59,25 @@ def get_the_holidays():
 def load_holidays_to_bigquery():
     holidays_list = get_the_holidays()
 
+    if not holidays_list:
+        raise RuntimeError("No holidays fetched, aborting load.")
+
     job_config = bq.LoadJobConfig(
         write_disposition=bq.WriteDisposition.WRITE_TRUNCATE,
         schema = [
-            bq.SchemaField("countryCode", "STRING"),
+            bq.SchemaField("country_code", "STRING"),
             bq.SchemaField("year", "INTEGER"),
-            bq.SchemaField("holiday_date", "DATE"),
-            bq.SchemaField("name", "STRING"),
-            bq.SchemaField("description", "STRING")
+            bq.SchemaField("payload", "STRING"),
         ]
     )
     print("Loading holidays to BigQuery...")
-    job = client.load_table_from_json(holidays_list, f'{DESTINATION_DATASET_NAME}.holidays', job_config = job_config)
+    job = client.load_table_from_json(holidays_list, f'{RAW_DATASET_NAME}.holidays', job_config = job_config)
     print("Loading holidays was successful")
 
 def create_query_partitions(table_id, partition_key):
     query = f"""
-        CREATE OR REPLACE TABLE `{DESTINATION_DATASET_NAME}.{table_id}`
-        PARTITION BY DATE({partition_key})
+        CREATE OR REPLACE TABLE `{RAW_DATASET_NAME}.{table_id}`
+        PARTITION BY DATE_TRUNC({partition_key}, MONTH)
         AS
         SELECT * FROM `{ORIGINAL_DATASET_ID}.{table_id}`;
     """
@@ -88,7 +85,7 @@ def create_query_partitions(table_id, partition_key):
 
 def create_base_query(table_id):
     query = f"""
-        CREATE OR REPLACE TABLE `{DESTINATION_DATASET_NAME}.{table_id}`
+        CREATE OR REPLACE TABLE `{RAW_DATASET_NAME}.{table_id}`
         AS
         SELECT * FROM `{ORIGINAL_DATASET_ID}.{table_id}`;
     """
