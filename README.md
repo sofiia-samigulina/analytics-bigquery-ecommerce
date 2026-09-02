@@ -39,11 +39,11 @@ Both paths run as a full refresh. Incremental loading in progress...
 
 ### Transformation (SQL)
 
-All transformations run inside BigQuery, so the raw layer stays reproducible from its sources alone.
+The transformation step was initially implemented in Python with Pandas. I later realized this was an unnecessary layer: since the data already resides in BigQuery, the same transformations can be expressed directly in SQL. All transformations now run inside BigQuery, so the raw layer remain reproducible from its sources alone.
 
-The holidays table is the substantial one: the stored JSON is parsed with PARSE_JSON, and the nested holidays array is expanded into one row per holiday with UNNEST and JSON_QUERY_ARRAY. Dates arrive in mixed formats (plain dates and full timestamps with offsets), so they are truncated to the date part before casting.
+The holidays table required the most work: the stored JSON is parsed with PARSE_JSON, and the nested holidays array is expanded with UNNEST and JSON_QUERY_ARRAY, turning unstructured API output into a flat table with one row per holiday.
 
-The remaining tables are cleaned without changing their grain: dropping unused columns, casting types, renaming for consistency (created_at becomes registration_date, ordered_at, received_at, occurred_at depending on what it means in context), and normalizing values that appear in more than one form (for example, country names).
+The remaining tables are cleaned without changing their grain: dropping unused columns, casting types (timestamps are reduced to plain dates where the time carries no meaning), renaming for consistency (created_at becomes registration_date, ordered_at, received_at or occurred_at, depending on what it means in context), and normalizing values that appear in more than one form (country names). 
 
 ### Orchestration
 
