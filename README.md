@@ -61,7 +61,7 @@ Rebuilding as a star schema to support a dynamic report in progress...
 - Python - data ingestion (google-cloud-bigquery, requests)
 - REST API - API Calendarific, world holidays as an external source
 - SQL - data transformation and analysis: aggregation functions, JOINs, order by, group by, CTEs, case when, having, views, JSON parsing
-  with "UNNEST", partitioning and clustering
+  with "UNNEST", partitioning
 - Power BI Desktop: DAX measures, visualizations 
 - ERDPlus: relational schema modeling
 
