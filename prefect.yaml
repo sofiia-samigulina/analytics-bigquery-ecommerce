@@ -1,0 +1,42 @@
+---
+# Welcome to your prefect.yaml file! You can use this file for
+# storing and managing configuration for deploying your flows.
+# We recommend committing this file to source control along
+# with your flow code.
+
+# Generic metadata about this project
+name: analytics-bigquery-ecommerce
+prefect-version: 3.8.4
+
+# build section allows you to manage and build docker images
+build: null
+
+# push section allows you to manage if and how this project
+# is uploaded to remote locations
+push: null
+
+# pull section allows you to provide instructions for cloning
+# this project in remote locations
+pull:
+- prefect.deployments.steps.set_working_directory:
+    directory: C:\Users\ACER\my_projects\analytics-bigquery-ecommerce
+
+# the deployments section allows you to provide configuration
+# for deploying flows
+deployments:
+- name: ecommerce-deployment
+  version: null
+  tags: 
+    - "tasks"
+    - "tutorials"
+    - "hands-on"
+  description: "Deplpoyment for the ecommerce data pipeline"
+  schedule: 
+    interval: 120
+  flow_name: process_data_pipeline
+  entrypoint: data_pipeline/orchestration/orchestrator.py:process_data_pipeline
+  parameters: {}
+  work_pool:
+    name: project-pool
+    work_queue_name: null
+    job_variables: {}
