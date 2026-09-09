@@ -34,9 +34,9 @@ deployments:
   schedule: 
     interval: 120
   flow_name: process_data_pipeline
-  entrypoint: data_pipeline/orchestration/orchestrator.py:process_data_pipeline
+  entrypoint: main.py:process_data_pipeline
   parameters: {}
   work_pool:
-    name: project-pool
+    name: oop-test-pool
     work_queue_name: null
     job_variables: {}
